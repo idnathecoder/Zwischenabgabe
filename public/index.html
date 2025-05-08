@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vue + Bootstrap demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+  
+  
+
+  <div id="app">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 mb-4">
+      <div class="container-fluid d-flex justify-content-between w-100">
+        <div id="clock" class="text-white">
+          {{ current_time }}
+        </div>
+        <button class="btn btn-outline-light" @click="openModal">Show Graph</button>
+      </div>
+    </nav>
+  
+    <!-- Add Bootstrap components here -->
+    <!-- <h1 @click="updateTime">update</h1>  @click ist kurz für event listener -->
+    <!-- {{ news }} -->
+    <!-- <h1 @click="updateNews">update News</h1> -->
+    <div v-if="!news.articles || news.articles.length === 0" class="text-center my-5">
+      <p>Lade Artikel… bitte einen Moment Geduld.</p>
+    </div>
+    <div class="container">
+      <div class="row g-3">
+        <div class="col-3 d-flex" v-for="(article, index) in news.articles">
+          <a :href=article.url target="_blank" class="text-decoration-none text-dark">
+            <div class="card h-100 w-100">
+              <img :src="article.urlToImage" alt="image about the article" class="card-img-top">
+              <div class="card-body">
+                <h2 class="card-title fs-6">{{ article.title }}</h5>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+
+  <!-- Modal -->
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">Graph Information</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="modal-body">
+          <canvas id="myChart"></canvas>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="renderChart">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+    
+  
+  <script type="module"> //module...Variablen in diesem Scope nur hier benutzbar
+    import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js' //mit import überall nutzbar
+    createApp({
+      data() {
+        return {
+          current_time: 'Loading Time...',
+          news: "loading News...",
+          _chart: null,
+          categories: ['business', 'entertainment', 'general', 'health', 'science', 'sports', 'technology'],
+          chartData: {
+            labels: [],
+            counts: []
+          },
+          myChart: ref(null)
+        }
+      },
+      methods: {
+        updateTime(){//jetzt haben wir updatetime überall zur verfügung, 
+          fetch('api/time') //fetch gibt promise
+          .then(res => res.text()) //.text gibt versprechen
+          .then(data => {
+            this.current_time = data
+          })
+        },
+        updateNews(){
+          fetch('api/news')
+          .then(res => res.json())
+          .then(data => {
+            this.news = data
+          })
+        },
+        openModal() {
+        const myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
+        myModal.show();  // Öffnet das Modal
+        myModal._element.addEventListener(
+          'shown.bs.modal',
+          () => {
+            this.renderChart();
+          },
+          { once: true } // Ensure the event listener runs only once
+        );
+        },
+        
+        async fetchCategoryCounts() {
+          const categories = ['business', 'entertainment', 'general', 'health', 'science', 'sports', 'technology'];
+          const counts = {};
+          for (const category of categories) {
+            try {
+              const res = await fetch(`/api/news?category=${category}`);
+              const data = await res.json();
+              counts[category] = data.totalResults || 0;
+            } catch {
+              counts[category] = 0;
+            }
+          }
+          this.chartData.labels = Object.keys(counts);
+          this.chartData.counts = Object.values(counts);
+        },
+
+        renderChart() {
+          console.log(this.chartData.labels, this.chartData.counts)
+          const ctx = document.getElementById('myChart')?.getContext('2d');
+          if (!ctx) return;
+
+          if (this._chart) this._chart.destroy();
+
+          this._chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: this.chartData.labels,
+              datasets: [{
+                label: 'Artikel pro Kategorie',
+                data: this.chartData.counts,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1 }
+                }
+              }
+            }
+          });
+        }
+      },
+      mounted(){//wird von vue aufgerufen, sobald die app geladen (mounted) hat
+        setInterval(this.updateTime, 1000)//keine () klammern, weil sonst wird die funktion ausgeführt aber wir wollen sie als parameter übergeben
+        this.updateTime()
+        setInterval(this.updateNews, 10000)
+        this.updateNews()
+        this.fetchCategoryCounts() 
+
+        
+      }
+    }).mount('#app')
+    window.vueApp = app;
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"
+    integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"
+    integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy"
+    crossorigin="anonymous"></script>
+
+    
+    
+</body>
+
+</html>
