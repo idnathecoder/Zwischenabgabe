@@ -41,5 +41,3 @@ app.use(express.static(path.join(__dirname, 'public'))) //__dirname: uebung3
 app.listen(8000, () => {
     console.log('Server started...')
 })
-
-
